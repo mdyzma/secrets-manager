@@ -4,11 +4,22 @@ from __future__ import annotations
 
 import getpass
 import os
+from collections.abc import Callable
 from datetime import timedelta
-from typing import Callable, Literal, Optional
+from typing import Literal
 
-from pysecret.config import AppConfig, AppPaths, ensure_state_dir, get_app_paths, load_config
-from pysecret.exceptions import BackendUnavailableError, PySecretError, SecretNotFoundError
+from pysecret.config import (
+    AppConfig,
+    AppPaths,
+    ensure_state_dir,
+    get_app_paths,
+    load_config,
+)
+from pysecret.exceptions import (
+    BackendUnavailableError,
+    PySecretError,
+    SecretNotFoundError,
+)
 from pysecret.models import ProviderCheckResult, SecretRecordSummary
 from pysecret.providers import Provider, ProviderRegistry
 from pysecret.secret_string import SecretString
@@ -24,13 +35,13 @@ BackendMode = Literal["auto", "keyring", "fallback"]
 class SecretManager:
     def __init__(
         self,
-        paths: Optional[AppPaths] = None,
-        config: Optional[AppConfig] = None,
-        password_prompt: Optional[Callable[[str], str]] = None,
-        provider_registry: Optional[ProviderRegistry] = None,
-        keyring_backend: Optional[OSKeyringBackend] = None,
-        fallback_backend: Optional[EncryptedSQLiteBackend] = None,
-        validator: Optional[ValidationClient] = None,
+        paths: AppPaths | None = None,
+        config: AppConfig | None = None,
+        password_prompt: Callable[[str], str] | None = None,
+        provider_registry: ProviderRegistry | None = None,
+        keyring_backend: OSKeyringBackend | None = None,
+        fallback_backend: EncryptedSQLiteBackend | None = None,
+        validator: ValidationClient | None = None,
     ) -> None:
         self._paths = paths or get_app_paths()
         ensure_state_dir(self._paths)
@@ -38,9 +49,13 @@ class SecretManager:
         self._provider_registry = provider_registry or ProviderRegistry()
         self._password_prompt = password_prompt or getpass.getpass
         self._validator = validator or ValidationClient()
-        self._session_cache = SessionKeyCache(timeout_seconds=self._config.unlock_timeout_seconds)
+        self._session_cache = SessionKeyCache(
+            timeout_seconds=self._config.unlock_timeout_seconds
+        )
 
-        provider_names = [provider.canonical for provider in self._provider_registry.all()]
+        provider_names = [
+            provider.canonical for provider in self._provider_registry.all()
+        ]
         self._keyring_backend = keyring_backend or OSKeyringBackend(
             service_name="pysecret.ai",
             providers=provider_names,
@@ -77,7 +92,7 @@ class SecretManager:
         self,
         provider: str,
         secret: str | SecretString,
-        ttl_seconds: Optional[int] = None,
+        ttl_seconds: int | None = None,
         backend: BackendMode = "auto",
     ) -> None:
         canonical = self._resolve_provider_name(provider)
@@ -87,7 +102,7 @@ class SecretManager:
             expires_at = now_utc() + timedelta(seconds=ttl_seconds)
 
         selected = self._selected_backends(backend)
-        last_error: Optional[Exception] = None
+        last_error: Exception | None = None
         for current in selected:
             try:
                 current.set(canonical, raw_secret, expires_at)
@@ -132,7 +147,9 @@ class SecretManager:
             return secret_obj
         raise SecretNotFoundError(f"No active secret found for provider: {canonical}")
 
-    def list_providers(self, masked: bool = True, include_expired: bool = False) -> list[SecretRecordSummary]:
+    def list_providers(
+        self, masked: bool = True, include_expired: bool = False
+    ) -> list[SecretRecordSummary]:
         merged: dict[str, SecretRecordSummary] = {}
         for current in self._selected_backends("auto"):
             try:
@@ -179,12 +196,17 @@ class SecretManager:
                 continue
         return deleted
 
-    def check(self, provider: Optional[str] = None, timeout_seconds: float = 8.0) -> list[ProviderCheckResult]:
+    def check(
+        self, provider: str | None = None, timeout_seconds: float = 8.0
+    ) -> list[ProviderCheckResult]:
         targets: list[str]
         if provider is not None:
             targets = [self._resolve_provider_name(provider)]
         else:
-            targets = [record.provider for record in self.list_providers(masked=True, include_expired=False)]
+            targets = [
+                record.provider
+                for record in self.list_providers(masked=True, include_expired=False)
+            ]
 
         results: list[ProviderCheckResult] = []
         for target in targets:

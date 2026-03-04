@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional
 
 from pysecret.models import SecretRecordSummary, StoredSecret
 
@@ -13,11 +12,11 @@ class StorageBackend(ABC):
     name: str
 
     @abstractmethod
-    def set(self, provider: str, secret: str, expires_at: Optional[datetime]) -> None:
+    def set(self, provider: str, secret: str, expires_at: datetime | None) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def get(self, provider: str) -> Optional[StoredSecret]:
+    def get(self, provider: str) -> StoredSecret | None:
         raise NotImplementedError
 
     @abstractmethod

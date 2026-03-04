@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional
 
 
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def to_iso8601(value: Optional[datetime]) -> Optional[str]:
+def to_iso8601(value: datetime | None) -> str | None:
     if value is None:
         return None
     if value.tzinfo is None:
@@ -18,7 +17,7 @@ def to_iso8601(value: Optional[datetime]) -> Optional[str]:
     return value.astimezone(timezone.utc).isoformat()
 
 
-def from_iso8601(value: Optional[str]) -> Optional[datetime]:
+def from_iso8601(value: str | None) -> datetime | None:
     if value is None:
         return None
     parsed = datetime.fromisoformat(value)
@@ -27,7 +26,7 @@ def from_iso8601(value: Optional[str]) -> Optional[datetime]:
     return parsed.astimezone(timezone.utc)
 
 
-def is_expired(expires_at: Optional[datetime]) -> bool:
+def is_expired(expires_at: datetime | None) -> bool:
     if expires_at is None:
         return False
     expiry = expires_at

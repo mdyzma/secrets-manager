@@ -31,11 +31,12 @@ def test_sqlite_backend_setup_and_crud(tmp_path) -> None:
         prompt_password=prompt,
     )
 
-    backend.set("openai", "sk-123", expires_at=None)
+    expected_value = "demo-token-123"
+    backend.set("openai", expected_value, expires_at=None)
     record = backend.get("openai")
 
     assert record is not None
-    assert record.secret == "sk-123"
+    assert record.secret == expected_value
 
     listed = backend.list()
     assert len(listed) == 1
@@ -53,7 +54,7 @@ def test_sqlite_backend_expiration(tmp_path) -> None:
         prompt_password=prompt,
     )
 
-    backend.set("openai", "sk-expired", expires_at=now_utc() - timedelta(seconds=1))
+    backend.set("openai", "demo-token-expired", expires_at=now_utc() - timedelta(seconds=1))
     assert backend.get("openai") is None
 
 
@@ -64,7 +65,7 @@ def test_sqlite_unlock_retry_failure(tmp_path) -> None:
         session_cache=SessionKeyCache(timeout_seconds=900),
         prompt_password=setup_prompt,
     )
-    backend.set("openai", "sk-123", expires_at=None)
+    backend.set("openai", "demo-token-123", expires_at=None)
 
     bad_prompt = PromptQueue(["wrong", "wrong", "wrong"])
     locked_backend = EncryptedSQLiteBackend(

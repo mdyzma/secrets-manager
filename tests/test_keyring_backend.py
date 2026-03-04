@@ -31,11 +31,12 @@ def keyring_store(monkeypatch: pytest.MonkeyPatch) -> dict[tuple[str, str], str]
 def test_keyring_backend_crud(keyring_store: dict[tuple[str, str], str]) -> None:
     backend = OSKeyringBackend("pysecret.ai.test", providers=["openai", "anthropic"])
 
-    backend.set("openai", "sk-live", expires_at=None)
+    expected_value = "demo-token-live"
+    backend.set("openai", expected_value, expires_at=None)
     stored = backend.get("openai")
 
     assert stored is not None
-    assert stored.secret == "sk-live"
+    assert stored.secret == expected_value
     assert stored.backend == "keyring"
 
     rows = backend.list()
@@ -47,8 +48,10 @@ def test_keyring_backend_crud(keyring_store: dict[tuple[str, str], str]) -> None
     assert backend.get("openai") is None
 
 
-def test_keyring_backend_expired_cleanup(keyring_store: dict[tuple[str, str], str]) -> None:
+def test_keyring_backend_expired_cleanup(
+    keyring_store: dict[tuple[str, str], str],
+) -> None:
     backend = OSKeyringBackend("pysecret.ai.test", providers=["openai"])
-    backend.set("openai", "sk-expired", expires_at=now_utc() - timedelta(seconds=5))
+    backend.set("openai", "demo-token-expired", expires_at=now_utc() - timedelta(seconds=5))
 
     assert backend.get("openai") is None

@@ -62,14 +62,16 @@ def load_config(paths: AppPaths) -> AppConfig:
 
     timeout = int(raw.get("unlock_timeout_seconds", DEFAULT_UNLOCK_TIMEOUT_SECONDS))
     preferred_backend = str(raw.get("preferred_backend", "auto"))
-    return AppConfig(unlock_timeout_seconds=timeout, preferred_backend=preferred_backend)
+    return AppConfig(
+        unlock_timeout_seconds=timeout, preferred_backend=preferred_backend
+    )
 
 
 def save_config(paths: AppPaths, config: AppConfig) -> None:
     ensure_state_dir(paths)
     content = (
         f"unlock_timeout_seconds = {config.unlock_timeout_seconds}\n"
-        f"preferred_backend = \"{config.preferred_backend}\"\n"
+        f'preferred_backend = "{config.preferred_backend}"\n'
     )
     paths.config_path.write_text(content, encoding="utf-8")
     try:

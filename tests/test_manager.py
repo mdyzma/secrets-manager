@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 import os
-from datetime import timedelta
 
 import pytest
 
 from pysecret.exceptions import BackendUnavailableError, SecretNotFoundError
 from pysecret.manager import SecretManager
-from pysecret.models import SecretRecordSummary, StoredSecret
 from pysecret.secret_string import SecretString
+from pysecret.session import SessionKeyCache
 from pysecret.storage.base import StorageBackend
 from pysecret.storage.sqlite_backend import EncryptedSQLiteBackend
-from pysecret.session import SessionKeyCache
-from pysecret.utils import now_utc
 
 
 class UnavailableBackend(StorageBackend):

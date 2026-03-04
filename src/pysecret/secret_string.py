@@ -8,7 +8,7 @@ import weakref
 class SecretString:
     """Holds secret bytes in mutable form for best-effort wiping."""
 
-    _instances: "weakref.WeakSet[SecretString]" = weakref.WeakSet()
+    _instances: weakref.WeakSet[SecretString] = weakref.WeakSet()
 
     def __init__(self, value: str) -> None:
         self._buf = bytearray(value.encode("utf-8"))

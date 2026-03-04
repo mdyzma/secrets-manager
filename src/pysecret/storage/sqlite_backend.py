@@ -5,18 +5,17 @@ from __future__ import annotations
 import base64
 import os
 import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional
 
-from pysecret.crypto import CryptoEngine, DEFAULT_PBKDF2_ITERATIONS
-from pysecret.exceptions import UnlockError
+from pysecret.crypto import DEFAULT_PBKDF2_ITERATIONS, CryptoEngine
+from pysecret.exceptions import UnlockError, ValidationError
 from pysecret.models import SecretRecordSummary, StoredSecret
 from pysecret.session import SessionKeyCache
 from pysecret.storage.base import StorageBackend
 from pysecret.utils import from_iso8601, is_expired, mask_secret, now_utc, to_iso8601
-
 
 SCHEMA_VERSION = 1
 VERIFIER_PLAINTEXT = b"pysecret-verifier-v1"
@@ -50,8 +49,7 @@ class EncryptedSQLiteBackend(StorageBackend):
     def _initialize(self) -> None:
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS secrets (
                     provider TEXT PRIMARY KEY,
                     ciphertext BLOB NOT NULL,
@@ -62,16 +60,13 @@ class EncryptedSQLiteBackend(StorageBackend):
                     expires_at TEXT NULL,
                     version INTEGER NOT NULL
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS meta (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL
                 )
-                """
-            )
+                """)
             conn.commit()
         if self._db_path.exists():
             try:
@@ -84,7 +79,7 @@ class EncryptedSQLiteBackend(StorageBackend):
         conn.row_factory = sqlite3.Row
         return conn
 
-    def _get_meta(self, conn: sqlite3.Connection, key: str) -> Optional[str]:
+    def _get_meta(self, conn: sqlite3.Connection, key: str) -> str | None:
         row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
         if row is None:
             return None
@@ -94,14 +89,18 @@ class EncryptedSQLiteBackend(StorageBackend):
         return str(value)
 
     def _set_meta(self, conn: sqlite3.Connection, key: str, value: str) -> None:
-        conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES(?, ?)", (key, value))
+        conn.execute(
+            "INSERT OR REPLACE INTO meta(key, value) VALUES(?, ?)", (key, value)
+        )
 
-    def _load_unlock_state(self, conn: sqlite3.Connection) -> Optional[UnlockState]:
+    def _load_unlock_state(self, conn: sqlite3.Connection) -> UnlockState | None:
         salt_b64 = self._get_meta(conn, "kdf_salt")
         iterations_raw = self._get_meta(conn, "kdf_iterations")
         if salt_b64 is None or iterations_raw is None:
             return None
-        return UnlockState(salt=base64.b64decode(salt_b64), iterations=int(iterations_raw))
+        return UnlockState(
+            salt=base64.b64decode(salt_b64), iterations=int(iterations_raw)
+        )
 
     def _setup_new_master_password(self, conn: sqlite3.Connection) -> bytes:
         first = self._prompt_password("Create master password: ")
@@ -116,8 +115,14 @@ class EncryptedSQLiteBackend(StorageBackend):
         self._set_meta(conn, "kdf_salt", base64.b64encode(salt).decode("ascii"))
         self._set_meta(conn, "kdf_iterations", str(DEFAULT_PBKDF2_ITERATIONS))
         self._set_meta(conn, "kdf_hash", "sha256")
-        self._set_meta(conn, "verifier_ciphertext", base64.b64encode(encrypted.ciphertext).decode("ascii"))
-        self._set_meta(conn, "verifier_nonce", base64.b64encode(encrypted.nonce).decode("ascii"))
+        self._set_meta(
+            conn,
+            "verifier_ciphertext",
+            base64.b64encode(encrypted.ciphertext).decode("ascii"),
+        )
+        self._set_meta(
+            conn, "verifier_nonce", base64.b64encode(encrypted.nonce).decode("ascii")
+        )
         self._set_meta(conn, "schema_version", str(SCHEMA_VERSION))
         conn.commit()
         return key
@@ -137,8 +142,10 @@ class EncryptedSQLiteBackend(StorageBackend):
             key = CryptoEngine.derive_key(password, state.salt, state.iterations)
             attempts += 1
             try:
-                plain = CryptoEngine.decrypt(key, verifier_ciphertext, verifier_nonce, VERIFIER_AAD)
-            except Exception:
+                plain = CryptoEngine.decrypt(
+                    key, verifier_ciphertext, verifier_nonce, VERIFIER_AAD
+                )
+            except ValidationError:
                 continue
             if plain == VERIFIER_PLAINTEXT:
                 return key
@@ -165,9 +172,9 @@ class EncryptedSQLiteBackend(StorageBackend):
             (now,),
         )
 
-    def set(self, provider: str, secret: str, expires_at: Optional[datetime]) -> None:
+    def set(self, provider: str, secret: str, expires_at: datetime | None) -> None:
         key = self._get_unlocked_key()
-        aad = f"{provider}|v{SCHEMA_VERSION}".encode("utf-8")
+        aad = f"{provider}|v{SCHEMA_VERSION}".encode()
         encrypted = CryptoEngine.encrypt(key, secret.encode("utf-8"), aad)
         now = to_iso8601(now_utc())
         expires_iso = to_iso8601(expires_at)
@@ -198,12 +205,15 @@ class EncryptedSQLiteBackend(StorageBackend):
             )
             conn.commit()
 
-    def get(self, provider: str) -> Optional[StoredSecret]:
+    def get(self, provider: str) -> StoredSecret | None:
         key = self._get_unlocked_key()
         with self._connect() as conn:
             self._cleanup_expired(conn)
             row = conn.execute(
-                "SELECT provider, ciphertext, nonce, aad, expires_at FROM secrets WHERE provider = ?",
+                (
+                    "SELECT provider, ciphertext, nonce, aad, expires_at "
+                    "FROM secrets WHERE provider = ?"
+                ),
                 (provider,),
             ).fetchone()
             if row is None:
@@ -219,7 +229,12 @@ class EncryptedSQLiteBackend(StorageBackend):
                 bytes(row["nonce"]),
                 bytes(row["aad"]),
             ).decode("utf-8")
-            return StoredSecret(provider=provider, secret=plaintext, expires_at=expires_at, backend=self.name)
+            return StoredSecret(
+                provider=provider,
+                secret=plaintext,
+                expires_at=expires_at,
+                backend=self.name,
+            )
 
     def list(self) -> list[SecretRecordSummary]:
         key = self._get_unlocked_key()

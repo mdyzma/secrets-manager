@@ -12,7 +12,6 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from pysecret.exceptions import ValidationError
 
-
 DEFAULT_PBKDF2_ITERATIONS = 310_000
 
 
@@ -28,8 +27,12 @@ class CryptoEngine:
         return os.urandom(16)
 
     @staticmethod
-    def derive_key(master_password: str, salt: bytes, iterations: int = DEFAULT_PBKDF2_ITERATIONS) -> bytes:
-        kdf = PBKDF2HMAC(algorithm=SHA256(), length=32, salt=salt, iterations=iterations)
+    def derive_key(
+        master_password: str, salt: bytes, iterations: int = DEFAULT_PBKDF2_ITERATIONS
+    ) -> bytes:
+        kdf = PBKDF2HMAC(
+            algorithm=SHA256(), length=32, salt=salt, iterations=iterations
+        )
         return kdf.derive(master_password.encode("utf-8"))
 
     @staticmethod

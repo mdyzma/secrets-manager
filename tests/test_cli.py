@@ -9,7 +9,6 @@ from pysecret.models import ProviderCheckResult, SecretRecordSummary
 from pysecret.providers import Provider
 from pysecret.secret_string import SecretString
 
-
 runner = CliRunner()
 
 
@@ -107,9 +106,9 @@ def test_cli_providers(monkeypatch) -> None:
 def test_cli_get_plain(monkeypatch) -> None:
     monkeypatch.setattr(
         "pysecret.cli.api.get",
-        lambda provider, as_plaintext=False, inject_env=False: "sk-plain"
-        if as_plaintext
-        else SecretString("sk-plain"),
+        lambda provider, as_plaintext=False, inject_env=False: (
+            "sk-plain" if as_plaintext else SecretString("sk-plain")
+        ),
     )
 
     result = runner.invoke(app, ["get", "openai", "--plain"])

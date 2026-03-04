@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Optional
 
 import keyring
 from keyring.errors import KeyringError
@@ -22,7 +21,7 @@ class OSKeyringBackend(StorageBackend):
         self._service_name = service_name
         self._providers = providers
 
-    def _load_record(self, provider: str) -> Optional[dict[str, Optional[str]]]:
+    def _load_record(self, provider: str) -> dict[str, str | None] | None:
         try:
             data = keyring.get_password(self._service_name, provider)
         except KeyringError as exc:
@@ -42,14 +41,14 @@ class OSKeyringBackend(StorageBackend):
         expires_str = expires_value if isinstance(expires_value, str) else None
         return {"secret": secret, "expires_at": expires_str}
 
-    def set(self, provider: str, secret: str, expires_at: Optional[datetime]) -> None:
+    def set(self, provider: str, secret: str, expires_at: datetime | None) -> None:
         payload = {"secret": secret, "expires_at": to_iso8601(expires_at)}
         try:
             keyring.set_password(self._service_name, provider, json.dumps(payload))
         except KeyringError as exc:
             raise BackendUnavailableError(str(exc)) from exc
 
-    def get(self, provider: str) -> Optional[StoredSecret]:
+    def get(self, provider: str) -> StoredSecret | None:
         record = self._load_record(provider)
         if record is None:
             return None
@@ -60,7 +59,9 @@ class OSKeyringBackend(StorageBackend):
         secret = record["secret"]
         if secret is None:
             return None
-        return StoredSecret(provider=provider, secret=secret, expires_at=expires_at, backend=self.name)
+        return StoredSecret(
+            provider=provider, secret=secret, expires_at=expires_at, backend=self.name
+        )
 
     def list(self) -> list[SecretRecordSummary]:
         records: list[SecretRecordSummary] = []

@@ -11,7 +11,9 @@ from pysecret.providers import Provider
 
 
 class ValidationClient:
-    def check(self, provider: Provider, api_key: str, timeout_seconds: float) -> ProviderCheckResult:
+    def check(
+        self, provider: Provider, api_key: str, timeout_seconds: float
+    ) -> ProviderCheckResult:
         headers = dict(provider.extra_headers)
         params: dict[str, str] = {}
 
@@ -28,7 +30,9 @@ class ValidationClient:
         ok = False
         try:
             with httpx.Client(timeout=timeout_seconds) as client:
-                response = client.get(provider.check_url, headers=headers, params=params)
+                response = client.get(
+                    provider.check_url, headers=headers, params=params
+                )
             status_code = response.status_code
             ok = response.status_code == 200
             if not ok:

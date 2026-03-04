@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Dict, Iterable
 
 from pysecret.exceptions import InvalidProviderError
 
@@ -15,7 +15,7 @@ class Provider:
     env_var: str
     check_url: str
     auth_style: str
-    extra_headers: Dict[str, str]
+    extra_headers: dict[str, str]
 
 
 class ProviderRegistry:
@@ -54,7 +54,9 @@ class ProviderRegistry:
                 extra_headers={},
             ),
         )
-        self._providers_by_name = {provider.canonical: provider for provider in providers}
+        self._providers_by_name = {
+            provider.canonical: provider for provider in providers
+        }
         self._alias_map: dict[str, str] = {}
         for provider in providers:
             for alias in provider.aliases:
