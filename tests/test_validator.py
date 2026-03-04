@@ -67,3 +67,14 @@ def test_validator_network_error(monkeypatch) -> None:
     assert not result.ok
     assert result.status_code is None
     assert result.error is not None
+
+
+def test_validator_provider_without_check_endpoint() -> None:
+    registry = ProviderRegistry()
+    provider = registry.resolve("ollama")
+
+    result = ValidationClient().check(provider, "demo-token", timeout_seconds=2.0)
+
+    assert not result.ok
+    assert result.status_code is None
+    assert result.error == "No validation endpoint configured for this provider"

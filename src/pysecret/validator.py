@@ -14,6 +14,15 @@ class ValidationClient:
     def check(
         self, provider: Provider, api_key: str, timeout_seconds: float
     ) -> ProviderCheckResult:
+        if provider.check_url is None or provider.auth_style == "none":
+            return ProviderCheckResult(
+                provider=provider.canonical,
+                ok=False,
+                status_code=None,
+                latency_ms=0.0,
+                error="No validation endpoint configured for this provider",
+            )
+
         headers = dict(provider.extra_headers)
         params: dict[str, str] = {}
 
@@ -31,7 +40,9 @@ class ValidationClient:
         try:
             with httpx.Client(timeout=timeout_seconds) as client:
                 response = client.get(
-                    provider.check_url, headers=headers, params=params
+                    provider.check_url,
+                    headers=headers,
+                    params=params,
                 )
             status_code = response.status_code
             ok = response.status_code == 200

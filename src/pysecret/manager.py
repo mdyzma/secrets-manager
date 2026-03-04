@@ -11,9 +11,11 @@ from typing import Literal
 from pysecret.config import (
     AppConfig,
     AppPaths,
+    CustomProviderConfig,
     ensure_state_dir,
     get_app_paths,
     load_config,
+    save_config,
 )
 from pysecret.exceptions import (
     BackendUnavailableError,
@@ -46,7 +48,12 @@ class SecretManager:
         self._paths = paths or get_app_paths()
         ensure_state_dir(self._paths)
         self._config = config or load_config(self._paths)
-        self._provider_registry = provider_registry or ProviderRegistry()
+        self._provider_registry = provider_registry or ProviderRegistry(
+            custom_providers=[
+                (provider.name, provider.env_var)
+                for provider in self._config.custom_providers
+            ]
+        )
         self._password_prompt = password_prompt or getpass.getpass
         self._validator = validator or ValidationClient()
         self._session_cache = SessionKeyCache(
@@ -66,11 +73,47 @@ class SecretManager:
             prompt_password=self._password_prompt,
         )
 
+    def _refresh_known_providers(self) -> None:
+        provider_names = [
+            provider.canonical for provider in self._provider_registry.all()
+        ]
+        if hasattr(self._keyring_backend, "set_known_providers"):
+            self._keyring_backend.set_known_providers(provider_names)
+
+    def _persist_custom_providers(self) -> None:
+        custom = tuple(
+            CustomProviderConfig(name=provider.canonical, env_var=provider.env_var)
+            for provider in self._provider_registry.custom_providers()
+        )
+        self._config = AppConfig(
+            unlock_timeout_seconds=self._config.unlock_timeout_seconds,
+            preferred_backend=self._config.preferred_backend,
+            custom_providers=custom,
+        )
+        save_config(self._paths, self._config)
+
     def providers(self) -> list[Provider]:
         return sorted(self._provider_registry.all(), key=lambda item: item.canonical)
 
     def provider_env_var(self, provider: str) -> str:
         return self._provider_registry.resolve(provider).env_var
+
+    def register_provider(self, name: str, env_var: str) -> Provider:
+        provider = self._provider_registry.register_custom(name, env_var)
+        self._refresh_known_providers()
+        self._persist_custom_providers()
+        return provider
+
+    def set_custom(
+        self,
+        name: str,
+        env_var: str,
+        secret: str | SecretString,
+        ttl_seconds: int | None = None,
+        backend: BackendMode = "auto",
+    ) -> None:
+        provider = self.register_provider(name, env_var)
+        self.set(provider.canonical, secret, ttl_seconds=ttl_seconds, backend=backend)
 
     def _resolve_provider_name(self, provider: str) -> str:
         return self._provider_registry.resolve(provider).canonical

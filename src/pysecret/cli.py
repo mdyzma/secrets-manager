@@ -34,6 +34,34 @@ def set_secret(
         raise typer.Exit(code=1) from exc
 
 
+@app.command("set-custom")
+def set_custom_secret(
+    name: str,
+    env_var: str,
+    ttl: Annotated[int | None, typer.Option(help="TTL in seconds")] = None,
+    backend: Annotated[BackendMode, typer.Option(help="Storage backend")] = "auto",
+) -> None:
+    try:
+        secret = getpass.getpass("API key: ")
+        if not secret:
+            raise typer.BadParameter("Secret cannot be empty")
+        api.set_custom(name, env_var, secret, ttl_seconds=ttl, backend=backend)
+        typer.echo(f"Stored secret for custom provider {name}")
+    except PySecretError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
+@app.command("add-provider")
+def add_provider(name: str, env_var: str) -> None:
+    try:
+        api.register_provider(name, env_var)
+        typer.echo(f"Registered custom provider {name} with {env_var}")
+    except PySecretError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
 @app.command("get")
 def get_secret(
     provider: str,
@@ -136,7 +164,8 @@ def providers() -> None:
     for provider in api.providers():
         aliases = ",".join(provider.aliases)
         typer.echo(
-            f"{provider.canonical:<10} env={provider.env_var:<20} aliases={aliases}"
+            f"{provider.canonical:<12} {provider.source:<8} "
+            f"env={provider.env_var:<20} aliases={aliases}"
         )
 
 

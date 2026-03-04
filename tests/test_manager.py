@@ -84,3 +84,21 @@ def test_manager_inject_env(tmp_path) -> None:
     manager.get("openai", inject_env=True)
 
     assert os.environ["OPENAI_API_KEY"] == "sk-openai"
+
+
+def test_manager_custom_provider_registration_and_inject_env(tmp_path) -> None:
+    prompt_calls = iter(["master123", "master123"])
+    fallback = EncryptedSQLiteBackend(
+        db_path=tmp_path / "secrets.db",
+        session_cache=SessionKeyCache(timeout_seconds=900),
+        prompt_password=lambda _: next(prompt_calls),
+    )
+    manager = SecretManager(
+        keyring_backend=UnavailableBackend(),
+        fallback_backend=fallback,
+    )
+
+    manager.set_custom("acme-ai", "ACME_AI_KEY", "demo-token")
+    manager.get("acme-ai", inject_env=True)
+
+    assert os.environ["ACME_AI_KEY"] == "demo-token"

@@ -25,6 +25,26 @@ def set(
     _manager().set(provider, secret, ttl_seconds=ttl_seconds, backend=backend)
 
 
+def set_custom(
+    name: str,
+    env_var: str,
+    secret: str | SecretString,
+    ttl_seconds: int | None = None,
+    backend: Literal["auto", "keyring", "fallback"] = "auto",
+) -> None:
+    _manager().set_custom(
+        name,
+        env_var,
+        secret,
+        ttl_seconds=ttl_seconds,
+        backend=backend,
+    )
+
+
+def register_provider(name: str, env_var: str) -> None:
+    _manager().register_provider(name, env_var)
+
+
 def get(
     provider: str,
     as_plaintext: bool = False,

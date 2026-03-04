@@ -21,6 +21,9 @@ class OSKeyringBackend(StorageBackend):
         self._service_name = service_name
         self._providers = providers
 
+    def set_known_providers(self, providers: list[str]) -> None:
+        self._providers = providers
+
     def _load_record(self, provider: str) -> dict[str, str | None] | None:
         try:
             data = keyring.get_password(self._service_name, provider)
