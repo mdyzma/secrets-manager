@@ -9,6 +9,8 @@ Local-first Python secrets manager for AI API keys.
 - Master-password unlock with session cache timeout.
 - Typer CLI (`pysecret`) with masked input.
 - Provider aliases for OpenAI, Anthropic, Gemini, and Mistral.
+- Built-in provider aliases also include Ollama and Pinecone.
+- Custom providers can be registered with a custom environment variable name.
 - TTL expiration support.
 - Live provider validation (`check`) against models endpoints.
 
@@ -22,6 +24,9 @@ pip install -e .
 
 ```bash
 pysecret set openai
+pysecret set ollama
+pysecret set pinecone
+pysecret set-custom acme-ai ACME_AI_KEY
 pysecret list
 pysecret get openai --inject-env
 pysecret check

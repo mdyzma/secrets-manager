@@ -31,6 +31,44 @@ def test_cli_set_uses_hidden_input(monkeypatch) -> None:
     assert captured["provider"] == "openai"
 
 
+def test_cli_set_custom_uses_hidden_input(monkeypatch) -> None:
+    captured = {}
+
+    def fake_set_custom(name: str, env_var: str, secret: str, ttl_seconds, backend) -> None:
+        captured["name"] = name
+        captured["env_var"] = env_var
+        captured["secret"] = secret
+        captured["ttl"] = ttl_seconds
+        captured["backend"] = backend
+
+    monkeypatch.setattr("pysecret.cli.getpass.getpass", lambda _: "demo-token-hidden")
+    monkeypatch.setattr("pysecret.cli.api.set_custom", fake_set_custom)
+
+    result = runner.invoke(
+        app, ["set-custom", "acme-ai", "ACME_AI_KEY", "--ttl", "120"]
+    )
+
+    assert result.exit_code == 0
+    assert "demo-token-hidden" not in result.output
+    assert captured["name"] == "acme-ai"
+    assert captured["env_var"] == "ACME_AI_KEY"
+
+
+def test_cli_add_provider(monkeypatch) -> None:
+    captured = {}
+
+    def fake_register_provider(name: str, env_var: str) -> None:
+        captured["name"] = name
+        captured["env_var"] = env_var
+
+    monkeypatch.setattr("pysecret.cli.api.register_provider", fake_register_provider)
+    result = runner.invoke(app, ["add-provider", "acme-ai", "ACME_AI_KEY"])
+
+    assert result.exit_code == 0
+    assert captured["name"] == "acme-ai"
+    assert captured["env_var"] == "ACME_AI_KEY"
+
+
 def test_cli_list_masked(monkeypatch) -> None:
     monkeypatch.setattr(
         "pysecret.cli.api.list_providers",
@@ -101,6 +139,7 @@ def test_cli_providers(monkeypatch) -> None:
 
     assert result.exit_code == 0
     assert "OPENAI_API_KEY" in result.output
+    assert "builtin" in result.output
 
 
 def test_cli_get_plain(monkeypatch) -> None:
